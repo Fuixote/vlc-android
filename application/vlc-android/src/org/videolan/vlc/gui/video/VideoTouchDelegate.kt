@@ -66,6 +66,7 @@ private const val MIN_FOV = 20f
 private const val MAX_FOV = 150f
 //stick event
 private const val JOYSTICK_INPUT_DELAY = 300
+private const val FASTPLAY_LONG_PRESS_DELAY = 500L
 
 class VideoTouchDelegate(private val player: VideoPlayerActivity,
                          var touchControls: Int,
@@ -204,7 +205,7 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                             }
                         }
                         if (touchControls and TOUCH_FLAG_FASTPLAY != 0 && isInAllowedBounds(touchX, touchY))
-                            handler.postDelayed(fastPlayRunnable, 250)
+                            handler.postDelayed(fastPlayRunnable, FASTPLAY_LONG_PRESS_DELAY)
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if ((touchControls and TOUCH_FLAG_SCREENSHOT == TOUCH_FLAG_SCREENSHOT) && event.pointerCount == 3 && touchAction != TOUCH_FASTPLAY) touchAction = TOUCH_SCREENSHOT
@@ -294,7 +295,9 @@ class VideoTouchDelegate(private val player: VideoPlayerActivity,
                         //handle multi taps
                         if (numberOfTaps > 1 && !player.isLocked) {
                             val range = (if (screenConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) screenConfig.xRange else screenConfig.yRange).toFloat()
+                            val upperHalf = event.y < screenConfig.metrics.heightPixels / 2f
                             when {
+                                (touchControls and TOUCH_FLAG_DOUBLE_TAP_SEEK != 0) && event.x < range / 4f && upperHalf -> seekDelta(org.videolan.tools.Settings.videoDoubleTapJumpDelay * 1000)
                                 (touchControls and TOUCH_FLAG_DOUBLE_TAP_SEEK != 0) && event.x < range / 4f -> seekDelta(-org.videolan.tools.Settings.videoDoubleTapJumpDelay * 1000)
                                 (touchControls and TOUCH_FLAG_DOUBLE_TAP_SEEK != 0) && event.x > range * 0.75 -> seekDelta(org.videolan.tools.Settings.videoDoubleTapJumpDelay * 1000)
                                 else -> if (touchControls and TOUCH_FLAG_PLAY != 0) player.doPlayPause()

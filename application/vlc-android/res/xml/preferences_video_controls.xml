@@ -99,7 +99,7 @@
                 app:iconSpaceReserved="false"
                 app:singleLineTitle="false" />
         <CheckBoxPreference
-                android:defaultValue="false"
+                android:defaultValue="true"
                 android:key="enable_fastplay"
                 android:summary="@string/enable_tap_and_hold_fastplay_summary"
                 android:title="@string/enable_tap_and_hold_fastplay_title"
