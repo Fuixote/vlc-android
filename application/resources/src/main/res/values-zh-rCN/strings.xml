@@ -823,6 +823,12 @@
     <string name="otg_device_title">OTG 设备</string>
     <string name="browser">浏览器</string>
     <string name="ab_repeat">A-B 循环</string>
+    <string name="lock_start_point">锁定起点</string>
+    <string name="lock_start_point_current_time">当前时刻</string>
+    <string name="lock_start_point_custom_time">自定义时刻</string>
+    <string name="lock_start_point_custom_hint">mm:ss 或 hh:mm:ss</string>
+    <string name="lock_start_point_invalid">无效的起点</string>
+    <string name="lock_start_point_saved">已锁定起点：%s</string>
     <string name="ab_repeat_reset">重置 A-B 循环</string>
     <string name="ab_repeat_stop">停止 A-B 循环</string>
     <string name="stop_after_this">当前曲目后停止播放</string>

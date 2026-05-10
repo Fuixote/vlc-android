@@ -763,13 +763,8 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         }
         if (::hudRightBinding.isInitialized) {
             if (!player.isLocked && player.orientationMode.locked && Settings.getInstance(player).getBoolean(SHOW_ORIENTATION_BUTTON, true)) {
-                val drawable = if (player.orientationMode.orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE || player.orientationMode.orientation == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE || player.orientationMode.orientation == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
-                    R.drawable.ic_player_lock_landscape
-                } else {
-                    R.drawable.ic_player_lock_portrait
-                }
                 hudRightBinding.orientationQuickAction.setVisible()
-                hudRightBinding.orientationQuickAction.chipIcon = ContextCompat.getDrawable(player, drawable)
+                hudRightBinding.orientationQuickAction.chipIcon = ContextCompat.getDrawable(player, R.drawable.ic_arrow_left)
             } else hudRightBinding.orientationQuickAction.setGone()
         }
     }

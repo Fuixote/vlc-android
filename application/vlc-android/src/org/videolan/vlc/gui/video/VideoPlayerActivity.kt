@@ -203,6 +203,7 @@ import org.videolan.vlc.gui.dialogs.adapters.VlcTrack
 import org.videolan.vlc.gui.dialogs.showContext
 import org.videolan.vlc.gui.helpers.BitmapUtil
 import org.videolan.vlc.gui.helpers.KeycodeListener
+import org.videolan.vlc.gui.helpers.LockedStartPointHelper
 import org.videolan.vlc.gui.helpers.PlayerKeyListenerDelegate
 import org.videolan.vlc.gui.helpers.PlayerOptionsDelegate
 import org.videolan.vlc.gui.helpers.UiTools
@@ -2033,7 +2034,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 takeScreenshot()
             }
             R.id.orientation_quick_action -> {
-                overlayDelegate.nextOrientation()
+                exitOK()
             }
             R.id.player_overlay_title_warning -> {
                 val snackbar = UiTools.snackerMessageInfinite(this, getString(R.string.player_title_fd_warning))
@@ -2276,13 +2277,17 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 if (intent.hasExtra(PLAY_DISABLE_HARDWARE)) media?.addFlags(MediaWrapper.MEDIA_NO_HWACCEL)
                 media!!.removeFlags(MediaWrapper.MEDIA_FORCE_AUDIO)
                 media.addFlags(MediaWrapper.MEDIA_VIDEO)
-                if (fromStart) media.addFlags(MediaWrapper.MEDIA_FROM_START)
 
-                // Set resume point
-                if (!continueplayback && !fromStart) {
-                    if (startTime <= 0L && media.time > 0L) startTime = media.time
+                // Set resume point and keep the per-video locked start as the earliest playback point.
+                if (!continueplayback) {
+                    if (!fromStart && startTime <= 0L && media.time > 0L) startTime = media.time
+                    startTime = LockedStartPointHelper.applyLockedStartTime(
+                        startTime,
+                        LockedStartPointHelper.getLockedStartTime(settings, media.uri)
+                    )
                     if (startTime > 0L) service.saveStartTime(startTime)
                 }
+                if (fromStart && startTime <= 0L) media.addFlags(MediaWrapper.MEDIA_FROM_START)
 
                 // Handle playback
                 if (resumePlaylist) {

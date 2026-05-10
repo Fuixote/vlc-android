@@ -4,13 +4,16 @@ import android.annotation.SuppressLint
 import android.content.DialogInterface
 import android.content.Intent
 import android.support.v4.media.session.PlaybackStateCompat
+import android.text.InputType
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityEvent
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.ViewStubCompat
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentActivity
@@ -24,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.videolan.medialibrary.Tools
 import org.videolan.resources.AndroidDevices
 import org.videolan.resources.VLCOptions
 import org.videolan.tools.AppScope
@@ -80,6 +84,7 @@ private const val ID_AUDIO_CONTROL_SETTING = 20L
 private const val ID_SAFE_MODE_LOCK = 21L
 private const val ID_SAFE_MODE_UNLOCK = 22L
 private const val ID_SHARE = 23L
+private const val ID_LOCK_START_POINT = 24L
 @SuppressLint("ShowToast")
 class PlayerOptionsDelegate(val activity: FragmentActivity, val service: PlaybackService, private val showABReapeat:Boolean = true)  {
 
@@ -123,6 +128,7 @@ class PlayerOptionsDelegate(val activity: FragmentActivity, val service: Playbac
         val chaptersCount = service.getChapters(-1)?.size ?: 0
         if (chaptersCount > 1) options.add(PlayerOption(ID_CHAPTER_TITLE, R.drawable.ic_chapter, res.getString(R.string.go_to_chapter)))
         if (::bookmarkClickedListener.isInitialized) options.add(PlayerOption(ID_BOOKMARK, R.drawable.ic_bookmark, res.getString(R.string.bookmarks)))
+        if (video) options.add(PlayerOption(ID_LOCK_START_POINT, R.drawable.ic_lock_player, res.getString(R.string.lock_start_point)))
         if (showABReapeat) options.add(PlayerOption(ID_ABREPEAT, R.drawable.ic_abrepeat, res.getString(R.string.ab_repeat)))
         options.add(PlayerOption(ID_SAVE_PLAYLIST, R.drawable.ic_addtoplaylist, res.getString(R.string.playlist_save)))
         if (service.playlistManager.player.canDoPassthrough() && settings.getString(KEY_AOUT, "0") != "2")
@@ -259,6 +265,10 @@ class PlayerOptionsDelegate(val activity: FragmentActivity, val service: Playbac
                 hide()
                 bookmarkClickedListener.invoke()
             }
+            ID_LOCK_START_POINT -> {
+                hide()
+                showLockStartPointDialog()
+            }
             ID_VIDEO_CONTROL_SETTING -> {
                 hide()
                 val videoControlsSettingsDialog = VideoControlsSettingsDialog()
@@ -304,6 +314,53 @@ class PlayerOptionsDelegate(val activity: FragmentActivity, val service: Playbac
             }
             else -> showFragment(option.id)
         }
+    }
+
+    private fun showLockStartPointDialog() {
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.lock_start_point)
+            .setItems(arrayOf(
+                res.getString(R.string.lock_start_point_current_time),
+                res.getString(R.string.lock_start_point_custom_time)
+            )) { _, which ->
+                when (which) {
+                    0 -> saveLockedStartPoint(service.getTime())
+                    1 -> showCustomStartPointDialog()
+                }
+            }
+            .show()
+    }
+
+    private fun showCustomStartPointDialog() {
+        val input = EditText(activity).apply {
+            hint = res.getString(R.string.lock_start_point_custom_hint)
+            inputType = InputType.TYPE_CLASS_TEXT
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.lock_start_point_custom_time)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val time = LockedStartPointHelper.parseTimeMillis(input.text.toString())
+                if (time == null) toast.setText(R.string.lock_start_point_invalid)
+                else saveLockedStartPoint(time)
+                if (time == null) toast.show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun saveLockedStartPoint(time: Long) {
+        val media = service.currentMediaWrapper
+        val length = service.length
+        if (media?.uri == null || time < 0L || length > 0L && time >= length) {
+            toast.setText(R.string.lock_start_point_invalid)
+            toast.show()
+            return
+        }
+        LockedStartPointHelper.saveLockedStartTime(settings, media.uri, time)
+        toast.setText(res.getString(R.string.lock_start_point_saved, Tools.millisToString(time)))
+        toast.show()
     }
 
     private fun showFragment(id: Long) {

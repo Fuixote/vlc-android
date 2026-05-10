@@ -87,6 +87,7 @@ import org.videolan.vlc.BuildConfig
 import org.videolan.vlc.PlaybackService
 import org.videolan.vlc.R
 import org.videolan.vlc.gui.browser.BaseBrowserFragment
+import org.videolan.vlc.gui.helpers.LockedStartPointHelper
 import org.videolan.vlc.gui.video.VideoPlayerActivity
 import org.videolan.vlc.util.FileUtils
 import org.videolan.vlc.util.awaitMedialibraryStarted
@@ -525,8 +526,7 @@ class PlaylistManager(val service: PlaybackService) : MediaWrapperList.EventList
 
             val start: Long
             if (isVideoPlaying) {
-                start = if (forceRestart
-                    || videoResumeStatus == ResumeStatus.NEVER) 0L else getStartTime(mw)
+                start = getStartTime(mw, forceRestart || videoResumeStatus == ResumeStatus.NEVER)
                 if (!forceResume && videoResumeStatus == ResumeStatus.ASK && start > 0 && isAppStarted()) {
                     waitForConfirmation.postValue(WaitConfirmation(mw.title, index, flags))
                     return
@@ -1006,12 +1006,13 @@ class PlaylistManager(val service: PlaybackService) : MediaWrapperList.EventList
 
     fun getMedia(position: Int) = mediaList.getMedia(position)
 
-    private fun getStartTime(mw: MediaWrapper) : Long {
+    private fun getStartTime(mw: MediaWrapper, ignoreSavedPosition: Boolean = false) : Long {
         val start = when {
             mw.hasFlag(MediaWrapper.MEDIA_FROM_START) -> {
                 mw.removeFlags(MediaWrapper.MEDIA_FROM_START)
                 0L
             }
+            ignoreSavedPosition -> 0L
             mw.time <= 0L -> when {
                 savedTime > 0L -> savedTime
                 else -> 0L
@@ -1019,7 +1020,10 @@ class PlaylistManager(val service: PlaybackService) : MediaWrapperList.EventList
             else -> mw.time
         }
         savedTime = 0L
-        return start
+        return LockedStartPointHelper.applyLockedStartTime(
+            start,
+            LockedStartPointHelper.getLockedStartTime(settings, mw.uri)
+        )
     }
 
     @Synchronized
