@@ -42,7 +42,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.StringRes
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.ViewStubCompat
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
@@ -69,7 +68,6 @@ import org.videolan.tools.ALLOW_FOLD_AUTO_LAYOUT
 import org.videolan.tools.ENABLE_SEEK_BUTTONS
 import org.videolan.tools.HINGE_ON_RIGHT
 import org.videolan.tools.KEY_ALWAYS_FAST_SEEK
-import org.videolan.tools.KEY_ENABLE_CASTING
 import org.videolan.tools.KEY_ENABLE_CLONE_MODE
 import org.videolan.tools.KEY_PLAYBACK_SPEED_VIDEO_GLOBAL
 import org.videolan.tools.SCREENSHOT_MODE
@@ -85,7 +83,6 @@ import org.videolan.tools.setInvisible
 import org.videolan.tools.setVisible
 import org.videolan.vlc.PlaybackService
 import org.videolan.vlc.R
-import org.videolan.vlc.RendererDelegate
 import org.videolan.vlc.VlcMigrationHelper
 import org.videolan.vlc.databinding.PlayerHudBinding
 import org.videolan.vlc.databinding.PlayerHudRightBinding
@@ -608,12 +605,6 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
                 hudBinding.lifecycleOwner = player
                 updateOrientationIcon()
                 overlayBackground = player.findViewById(R.id.player_overlay_background)
-                if (!AndroidDevices.isChromeBook && !player.isTv
-                        && player.settings.getBoolean(KEY_ENABLE_CASTING, true)) {
-                    PlaybackService.renderer.observe(player) { rendererItem -> hudRightBinding.videoRenderer.setImageDrawable(AppCompatResources.getDrawable(player, if (rendererItem == null) R.drawable.ic_player_renderer else R.drawable.ic_player_renderer_on)) }
-                    RendererDelegate.renderers.observe(player) { updateRendererVisibility() }
-                }
-
                 setTitle(service.currentMediaWrapper?.title)
                 manageTitleConstraints()
                 updateTitleConstraints()
@@ -652,18 +643,23 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
 
     fun updateSeekable(seekable: Boolean) {
         if (!::hudBinding.isInitialized) return
-        hudBinding.playerOverlayRewind.isEnabled = seekable
-        hudBinding.playerOverlayRewind.setImageResource(if (seekable)
-            R.drawable.ic_player_rewind_10
-        else
-            R.drawable.ic_player_rewind_10_disabled)
-        hudBinding.playerOverlayForward.isEnabled = seekable
-        hudBinding.playerOverlayForward.setImageResource(if (seekable)
-            R.drawable.ic_player_forward_10
-        else
-            R.drawable.ic_player_forward_10_disabled)
+        updatePlaylistNavigationButtons()
         if (!player.isLocked)
             hudBinding.playerOverlaySeekbar.isEnabled = seekable
+    }
+
+    private fun updatePlaylistNavigationButtons() {
+        if (!::hudBinding.isInitialized) return
+        val canPrevious = player.service?.hasPrevious() == true
+        val canNext = player.service?.hasNext() == true
+        hudBinding.playerOverlayRewind.isEnabled = canPrevious
+        hudBinding.playerOverlayRewind.alpha = if (canPrevious) 1F else 0.35F
+        hudBinding.playerOverlayRewind.setImageResource(R.drawable.ic_player_previous)
+        hudBinding.playerOverlayRewind.contentDescription = player.getString(R.string.previous)
+        hudBinding.playerOverlayForward.isEnabled = canNext
+        hudBinding.playerOverlayForward.alpha = if (canNext) 1F else 0.35F
+        hudBinding.playerOverlayForward.setImageResource(R.drawable.ic_player_next)
+        hudBinding.playerOverlayForward.contentDescription = player.getString(R.string.next)
     }
 
     fun setListeners(enabled: Boolean) {
@@ -789,7 +785,7 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
     }
 
     fun updateRendererVisibility() {
-        if (::hudRightBinding.isInitialized) hudRightBinding.videoRenderer.visibility = if (player.isLocked || RendererDelegate.renderers.value.isNullOrEmpty()) View.GONE else View.VISIBLE
+        if (::hudRightBinding.isInitialized) hudRightBinding.videoRenderer.visibility = if (player.isLocked) View.GONE else View.VISIBLE
     }
 
     private val titleConstraintSetLandscape = ConstraintSet()
@@ -889,10 +885,10 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
             }
         }
         if (player.service?.hasPlaylist() == true) {
-            hudRightBinding.playlistToggle.setVisible()
+            hudRightBinding.playlistToggle.setGone()
             if (::hudBinding.isInitialized) {
-                hudBinding.playlistPrevious.setVisible()
-                hudBinding.playlistNext.setVisible()
+                hudBinding.playlistPrevious.setGone()
+                hudBinding.playlistNext.setGone()
             }
         } else hudRightBinding.playlistToggle.setGone()
         hudRightBinding.playlistToggle.setOnClickListener(player)
@@ -932,23 +928,16 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
         if (show && player.isInPictureInPictureMode) return
         if (::hudBinding.isInitialized) {
             hudBinding.playerOverlayPlay.visibility = if (show) View.VISIBLE else View.INVISIBLE
-            if (seekButtons) {
-                hudBinding.playerOverlayRewind.visibility = if (show) View.VISIBLE else View.INVISIBLE
-                hudBinding.playerOverlayRewindText.text = "${Settings.videoJumpDelay}"
-                hudBinding.playerOverlayRewind.contentDescription = player.getString(R.string.talkback_action_rewind, Settings.videoJumpDelay.toString())
-                hudBinding.playerOverlayRewindText.visibility = if (show) View.VISIBLE else View.INVISIBLE
-                hudBinding.playerOverlayForward.visibility = if (show) View.VISIBLE else View.INVISIBLE
-                hudBinding.playerOverlayForwardText.text = "${Settings.videoJumpDelay}"
-                hudBinding.playerOverlayForward.contentDescription = player.getString(R.string.talkback_action_forward, Settings.videoJumpDelay.toString())
-                hudBinding.playerOverlayForwardText.visibility = if (show) View.VISIBLE else View.INVISIBLE
-            }
+            updatePlaylistNavigationButtons()
+            hudBinding.playerOverlayRewind.visibility = if (show) View.VISIBLE else View.INVISIBLE
+            hudBinding.playerOverlayRewindText.setGone()
+            hudBinding.playerOverlayForward.visibility = if (show) View.VISIBLE else View.INVISIBLE
+            hudBinding.playerOverlayForwardText.setGone()
             hudBinding.playerOverlayTracks.visibility = if (show) View.VISIBLE else View.INVISIBLE
             hudBinding.playerOverlayAdvFunction.visibility = if (show) View.VISIBLE else View.INVISIBLE
             hudBinding.playerResize.visibility = if (show) View.VISIBLE else View.INVISIBLE
-            if (hasPlaylist) {
-                hudBinding.playlistPrevious.visibility = if (show) View.VISIBLE else View.INVISIBLE
-                hudBinding.playlistNext.visibility = if (show) View.VISIBLE else View.INVISIBLE
-            }
+            hudBinding.playlistPrevious.setGone()
+            hudBinding.playlistNext.setGone()
             hudBinding.orientationToggle.visibility = if (player.isTv || AndroidDevices.isChromeBook) View.INVISIBLE else if (show) View.VISIBLE else View.INVISIBLE
             if (!show) hudBinding.playerOverlaySeekbar.disableAccessibilityEvents() else hudBinding.playerOverlaySeekbar.enableAccessibilityEvents()
         }
@@ -958,7 +947,8 @@ class VideoPlayerOverlayDelegate (private val player: VideoPlayerActivity) {
             hudRightBinding.videoSecondaryDisplay.visibility = if (!show) View.GONE else if (UiTools.hasSecondaryDisplay(player.applicationContext)) View.VISIBLE else View.GONE
             hudRightBinding.videoSecondaryDisplay.contentDescription = player.resources.getString(if (secondary) R.string.video_remote_disable else R.string.video_remote_enable)
 
-            hudRightBinding.playlistToggle.visibility = if (show && player.service?.hasPlaylist() == true) View.VISIBLE else View.GONE
+            hudRightBinding.videoRenderer.visibility = if (show && !player.isLocked) View.VISIBLE else View.GONE
+            hudRightBinding.playlistToggle.setGone()
             hudRightBinding.playerScreenshot.visibility = if (!player.isLocked && Settings.getInstance(player).getString(SCREENSHOT_MODE, "0") in arrayOf("1", "3")) View.VISIBLE else View.GONE
             hudRightBinding.playerOverlayNavmenu.visibility = if (player.menuIdx >= 0) View.VISIBLE else View.GONE
             hudRightBinding.sleepQuickAction.visibility = if (show && PlaybackService.playerSleepTime.value != null) View.VISIBLE else View.GONE

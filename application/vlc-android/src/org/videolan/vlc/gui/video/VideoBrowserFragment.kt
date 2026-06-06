@@ -38,12 +38,10 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
-import org.videolan.medialibrary.interfaces.media.Playlist
 import org.videolan.tools.isStarted
 import org.videolan.vlc.R
 import org.videolan.vlc.gui.BaseFragment
 import org.videolan.vlc.gui.ContentActivity
-import org.videolan.vlc.gui.PlaylistFragment
 import org.videolan.vlc.gui.helpers.UiTools.addFavoritesIcon
 import org.videolan.vlc.gui.helpers.UiTools.removeDrawables
 import org.videolan.vlc.interfaces.Filterable
@@ -58,7 +56,7 @@ class VideoBrowserFragment : BaseFragment(), TabLayout.OnTabSelectedListener, Fi
     override fun getTitle() = getString(R.string.videos)
 
     private lateinit var videoPagerAdapter: VideoPagerAdapter
-    override val hasTabs = true
+    override val hasTabs = false
     private var tabLayout: TabLayout? = null
     private lateinit var tabLayoutMediator: TabLayoutMediator
     private lateinit var viewPager: ViewPager2
@@ -172,16 +170,10 @@ class VideoBrowserFragment : BaseFragment(), TabLayout.OnTabSelectedListener, Fi
      */
     inner class VideoPagerAdapter(fa: VideoBrowserFragment) : FragmentStateAdapter(fa) {
 
-        override fun getItemCount() = 2
+        override fun getItemCount() = 1
 
         // Returns the fragment to display for that page
-        override fun createFragment(position: Int): Fragment {
-            return when (position) {
-                0 -> VideoGridFragment.newInstance()
-                1 -> PlaylistFragment.newInstance(Playlist.Type.Video)
-                else -> throw IllegalStateException("Invalid fragment index")
-            }
-        }
+        override fun createFragment(position: Int): Fragment = VideoGridFragment.newInstance()
     }
 
     /**
@@ -228,4 +220,3 @@ class VideoBrowserFragment : BaseFragment(), TabLayout.OnTabSelectedListener, Fi
 
 
 }
-

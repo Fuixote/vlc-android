@@ -396,7 +396,7 @@
                     vlc:layout_constraintEnd_toStartOf="@+id/player_overlay_play"
                     vlc:layout_constraintStart_toEndOf="@+id/playlist_previous"
                     vlc:layout_constraintTop_toTopOf="@+id/player_overlay_play"
-                    vlc:srcCompat="@drawable/ic_player_rewind_10" />
+                    vlc:srcCompat="@drawable/ic_player_previous" />
 
             <TextView
                     android:id="@+id/player_overlay_rewind_text"
@@ -446,7 +446,7 @@
                     vlc:layout_constraintEnd_toStartOf="@+id/playlist_next"
                     vlc:layout_constraintStart_toEndOf="@+id/player_overlay_play"
                     vlc:layout_constraintTop_toTopOf="@+id/player_overlay_play"
-                    vlc:srcCompat="@drawable/ic_player_forward_10" />
+                    vlc:srcCompat="@drawable/ic_player_next" />
 
 
             <TextView

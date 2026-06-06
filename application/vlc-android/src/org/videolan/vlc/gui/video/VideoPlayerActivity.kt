@@ -196,7 +196,6 @@ import org.videolan.vlc.gui.dialogs.EqualizerFragmentDialog
 import org.videolan.vlc.gui.dialogs.PlaybackSpeedDialog
 import org.videolan.vlc.gui.dialogs.RENAME_DIALOG_MEDIA
 import org.videolan.vlc.gui.dialogs.RENAME_DIALOG_NEW_NAME
-import org.videolan.vlc.gui.dialogs.RenderersDialog
 import org.videolan.vlc.gui.dialogs.SleepTimerDialog
 import org.videolan.vlc.gui.dialogs.VLCBottomSheetDialogFragment.Companion.shouldInterceptRemote
 import org.videolan.vlc.gui.dialogs.adapters.VlcTrack
@@ -1453,9 +1452,11 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
 
     override fun previous() {
         service?.let { service ->
-            service.previous(false)
-            overlayDelegate.showInfo(getString(R.string.previous), 1000)
-            overlayDelegate.showOverlay()
+            if (service.hasPrevious()) {
+                service.previous(true)
+                overlayDelegate.showInfo(getString(R.string.previous), 1000)
+                overlayDelegate.showOverlay()
+            }
         }
     }
 
@@ -1987,12 +1988,10 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
             R.id.orientation_toggle -> toggleOrientationLock()
             R.id.playlist_toggle -> overlayDelegate.togglePlaylist()
             R.id.player_overlay_forward -> {
-                jump(forward = true, long = false)
-                overlayDelegate.showOverlay()
+                next()
             }
             R.id.player_overlay_rewind -> {
-                jump(forward = false, long = false)
-                overlayDelegate.showOverlay()
+                previous()
             }
             R.id.ab_repeat_add_marker -> service?.playlistManager?.setABRepeatValue(
                 service?.playlistManager?.getCurrentMedia(), overlayDelegate.hudBinding.playerOverlaySeekbar.progress.toLong())
@@ -2003,8 +2002,7 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
             }
             R.id.player_overlay_navmenu -> showNavMenu()
             R.id.player_overlay_length, R.id.player_overlay_time -> toggleTimeDisplay()
-            R.id.video_renderer -> if (supportFragmentManager.findFragmentByTag("renderers") == null)
-                RenderersDialog().show(supportFragmentManager, "renderers")
+            R.id.video_renderer -> overlayDelegate.togglePlaylist()
             R.id.video_secondary_display -> {
                 clone = displayManager.isSecondary
                 recreate()
@@ -2053,11 +2051,11 @@ open class VideoPlayerActivity : AppCompatActivity(), PlaybackService.Callback, 
                 return true
             }
             R.id.player_overlay_forward -> {
-                jump(forward = true, long = true)
+                next()
                 return true
             }
             R.id.player_overlay_rewind -> {
-                jump(forward = false, long = true)
+                previous()
                 return true
             }
         }
