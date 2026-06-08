@@ -777,6 +777,13 @@
     <string name="popup_playback">Playing in a Pop-Up window</string>
     <string name="popup_expand">Expand video</string>
     <string name="download_subtitles">Download subtitles</string>
+    <string name="extract_jav_code">番号提取</string>
+    <string name="jdb_source">Jdb源</string>
+    <string name="extract_jav_code_no_match">未识别到有效番号</string>
+    <string name="extract_jav_code_not_local">只支持本地文件</string>
+    <string name="extract_jav_code_target_exists">目标文件已存在: %s</string>
+    <string name="extract_jav_code_done">已重命名为 %s</string>
+    <string name="extract_jav_code_failed">番号提取失败: %s</string>
     <string name="powered_opensubtitles">Powered by OpenSubtitles</string>
     <string name="open_subtitles_not_logged_in">You are not logged into OpenSubtitles\nLogging in will grant you access to more downloads</string>
     <string name="open_subtitles_logged_in">Logged in as %1$s</string>

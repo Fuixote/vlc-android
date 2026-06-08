@@ -67,6 +67,7 @@ import org.videolan.tools.putSingle
 import org.videolan.vlc.BuildConfig
 import org.videolan.vlc.R
 import org.videolan.vlc.StartActivity
+import org.videolan.vlc.forceReloadLibrary
 import org.videolan.vlc.gui.audio.AudioBrowserFragment
 import org.videolan.vlc.gui.dialogs.NotificationPermissionManager
 import org.videolan.vlc.gui.dialogs.PermissionListDialog
@@ -79,6 +80,7 @@ import org.videolan.vlc.gui.helpers.UiTools
 import org.videolan.vlc.gui.helpers.UiTools.isTablet
 import org.videolan.vlc.gui.preferences.PreferencesActivity
 import org.videolan.vlc.gui.preferences.search.PreferenceParser
+import org.videolan.vlc.gui.video.VideoBrowserFragment
 import org.videolan.vlc.gui.video.VideoGridFragment
 import org.videolan.vlc.interfaces.Filterable
 import org.videolan.vlc.interfaces.IRefreshable
@@ -327,6 +329,10 @@ class MainActivity : ContentActivity(),
     }
 
     private fun forceRefresh(current: Fragment?) {
+        if (current is VideoBrowserFragment || current is VideoGridFragment) {
+            forceReloadLibrary()
+            return
+        }
         if (!mediaLibrary.isWorking) {
             if (current != null && current is IRefreshable)
                 (current as IRefreshable).refresh()

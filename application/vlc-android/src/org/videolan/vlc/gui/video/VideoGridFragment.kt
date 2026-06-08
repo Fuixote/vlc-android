@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import org.videolan.medialibrary.EventTools
 import org.videolan.medialibrary.interfaces.Medialibrary
 import org.videolan.medialibrary.interfaces.media.Folder
@@ -82,6 +83,7 @@ import org.videolan.tools.retrieveParent
 import org.videolan.vlc.PlaybackService
 import org.videolan.vlc.R
 import org.videolan.vlc.databinding.VideoGridBinding
+import org.videolan.vlc.forceReloadLibrary
 import org.videolan.vlc.gui.SecondaryActivity
 import org.videolan.vlc.gui.browser.MediaBrowserFragment
 import org.videolan.vlc.gui.dialogs.AddToGroupDialog
@@ -127,12 +129,14 @@ import org.videolan.vlc.util.ContextOption.CTX_APPEND
 import org.videolan.vlc.util.ContextOption.CTX_BAN_FOLDER
 import org.videolan.vlc.util.ContextOption.CTX_DELETE
 import org.videolan.vlc.util.ContextOption.CTX_DOWNLOAD_SUBTITLES
+import org.videolan.vlc.util.ContextOption.CTX_EXTRACT_JAV_CODE
 import org.videolan.vlc.util.ContextOption.CTX_FAV_ADD
 import org.videolan.vlc.util.ContextOption.CTX_FAV_REMOVE
 import org.videolan.vlc.util.ContextOption.CTX_FIND_METADATA
 import org.videolan.vlc.util.ContextOption.CTX_GO_TO_FOLDER
 import org.videolan.vlc.util.ContextOption.CTX_GROUP_SIMILAR
 import org.videolan.vlc.util.ContextOption.CTX_INFORMATION
+import org.videolan.vlc.util.ContextOption.CTX_JDB_SOURCE
 import org.videolan.vlc.util.ContextOption.CTX_MARK_ALL_AS_PLAYED
 import org.videolan.vlc.util.ContextOption.CTX_MARK_ALL_AS_UNPLAYED
 import org.videolan.vlc.util.ContextOption.CTX_MARK_AS_PLAYED
@@ -150,11 +154,13 @@ import org.videolan.vlc.util.ContextOption.CTX_UNGROUP
 import org.videolan.vlc.util.ContextOption.Companion.createCtxFolderFlags
 import org.videolan.vlc.util.ContextOption.Companion.createCtxVideoFlags
 import org.videolan.vlc.util.ContextOption.Companion.createCtxVideoGroupFlags
+import org.videolan.vlc.util.JavCodeExtractor
 import org.videolan.vlc.util.Permissions
 import org.videolan.vlc.util.isMissing
 import org.videolan.vlc.util.isTalkbackIsEnabled
 import org.videolan.vlc.util.launchWhenStarted
 import org.videolan.vlc.util.onAnyChange
+import org.videolan.vlc.util.openLinkIfPossible
 import org.videolan.vlc.util.share
 import org.videolan.vlc.util.showParentFolder
 import org.videolan.vlc.viewmodels.mobile.VideoGroupingType
@@ -475,7 +481,7 @@ class VideoGridFragment : MediaBrowserFragment<VideosViewModel>(), SwipeRefreshL
     }
 
     override fun onRefresh() {
-        activity?.reloadLibrary()
+        activity?.forceReloadLibrary()
     }
 
     override fun setFabPlayVisibility(enable: Boolean) {
@@ -624,6 +630,8 @@ class VideoGridFragment : MediaBrowserFragment<VideosViewModel>(), SwipeRefreshL
                 CTX_APPEND -> MediaUtils.appendMedia(activity, media)
                 CTX_SET_RINGTONE -> requireActivity().setRingtone(media)
                 CTX_PLAY_NEXT -> MediaUtils.insertNext(requireActivity(), media.tracks)
+                CTX_EXTRACT_JAV_CODE -> extractJavCode(media)
+                CTX_JDB_SOURCE -> openJdbSource(media)
                 CTX_DOWNLOAD_SUBTITLES -> MediaUtils.getSubs(requireActivity(), media)
                 CTX_ADD_TO_PLAYLIST -> requireActivity().addToPlaylist(media.tracks, SavePlaylistDialog.KEY_NEW_TRACKS)
                 CTX_FIND_METADATA -> {
@@ -687,6 +695,85 @@ class VideoGridFragment : MediaBrowserFragment<VideosViewModel>(), SwipeRefreshL
     private fun renameGroup(media: VideoGroup) {
         val dialog = RenameDialog.newInstance(media)
         dialog.show(requireActivity().supportFragmentManager, RenameDialog::class.simpleName)
+    }
+
+    private fun extractJavCode(media: MediaWrapper) {
+        val sourceFile = media.uri.path?.let { File(it) }
+        if (sourceFile == null || !sourceFile.exists() || !sourceFile.isFile) {
+            UiTools.snacker(requireActivity(), R.string.extract_jav_code_not_local)
+            return
+        }
+
+        val code = JavCodeExtractor.extract(media.fileName.ifBlank { media.title })
+        if (code == null) {
+            UiTools.snacker(requireActivity(), R.string.extract_jav_code_no_match)
+            return
+        }
+
+        val targetName = if (sourceFile.extension.isBlank()) code else "$code.${sourceFile.extension}"
+        val targetFile = sourceFile.resolveSibling(targetName)
+        if (targetFile == sourceFile) {
+            UiTools.snacker(requireActivity(), getString(R.string.extract_jav_code_done, targetName))
+            return
+        }
+        if (targetFile.exists()) {
+            UiTools.snacker(requireActivity(), getString(R.string.extract_jav_code_target_exists, targetName))
+            return
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching { renameWithSidecars(sourceFile, targetFile) }
+                .onSuccess {
+                    withContext(Dispatchers.Main) {
+                        viewModel.refresh()
+                        activity?.reloadLibrary()
+                        UiTools.snacker(requireActivity(), getString(R.string.extract_jav_code_done, targetName))
+                    }
+                }
+                .onFailure { error ->
+                    withContext(Dispatchers.Main) {
+                        UiTools.snacker(requireActivity(), getString(R.string.extract_jav_code_failed, error.message ?: "unknown"))
+                    }
+                }
+        }
+    }
+
+    private fun openJdbSource(media: MediaWrapper) {
+        val url = JavCodeExtractor.buildJdbCollectionUrl(media.fileName.ifBlank { media.title })
+        if (url == null) {
+            UiTools.snacker(requireActivity(), R.string.extract_jav_code_no_match)
+            return
+        }
+        requireActivity().openLinkIfPossible(url)
+    }
+
+    private fun renameWithSidecars(sourceFile: File, targetFile: File) {
+        val sidecars = sourceFile.parentFile?.listFiles()?.filter {
+            it.isFile && it.nameWithoutExtension.equals(sourceFile.nameWithoutExtension, ignoreCase = true) &&
+                    it.extension.lowercase() in renamableSidecarExtensions
+        }?.map {
+            it to it.resolveSibling("${targetFile.nameWithoutExtension}.${it.extension}")
+        }.orEmpty()
+
+        sidecars.firstOrNull { (oldFile, newFile) -> oldFile != newFile && newFile.exists() }?.let { (_, newFile) ->
+            throw IllegalStateException(getString(R.string.extract_jav_code_target_exists, newFile.name))
+        }
+
+        val renamedSidecars = mutableListOf<Pair<File, File>>()
+        if (!sourceFile.renameTo(targetFile)) throw IllegalStateException(sourceFile.name)
+        try {
+            for ((oldFile, newFile) in sidecars) {
+                if (oldFile == newFile) continue
+                if (!oldFile.renameTo(newFile)) throw IllegalStateException(oldFile.name)
+                renamedSidecars.add(oldFile to newFile)
+            }
+        } catch (error: Throwable) {
+            for ((oldFile, newFile) in renamedSidecars.asReversed()) {
+                if (newFile.exists()) newFile.renameTo(oldFile)
+            }
+            if (targetFile.exists()) targetFile.renameTo(sourceFile)
+            throw error
+        }
     }
 
     private val thumbObs = Observer<MediaWrapper> { media ->
@@ -797,6 +884,10 @@ class VideoGridFragment : MediaBrowserFragment<VideosViewModel>(), SwipeRefreshL
     private fun castAsAudio(): Boolean = PlaybackService.renderer.value != null && settings.getBoolean(KEY_CASTING_AUDIO_ONLY, false)
 
     companion object {
+        private val renamableSidecarExtensions = setOf(
+            "srt", "vtt", "ass", "ssa", "sub", "idx", "xml", "nfo", "jpg", "jpeg", "png", "webp"
+        )
+
         fun newInstance() = VideoGridFragment()
     }
 }
