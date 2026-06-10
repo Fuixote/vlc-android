@@ -779,6 +779,9 @@
     <string name="download_subtitles">Download subtitles</string>
     <string name="extract_jav_code">番号提取</string>
     <string name="jdb_source">Jdb源</string>
+    <string name="extract_jav_code_confirm">确认提取</string>
+    <string name="extract_jav_code_custom">另改为</string>
+    <string name="extract_jav_code_empty_name">文件名不能为空</string>
     <string name="extract_jav_code_no_match">未识别到有效番号</string>
     <string name="extract_jav_code_not_local">只支持本地文件</string>
     <string name="extract_jav_code_target_exists">目标文件已存在: %s</string>

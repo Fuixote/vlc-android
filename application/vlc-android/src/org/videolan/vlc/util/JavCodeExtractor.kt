@@ -23,6 +23,20 @@ object JavCodeExtractor {
         }
     }
 
+    fun buildTargetName(code: String, extension: String): String {
+        return if (extension.isBlank()) code else "$code.$extension"
+    }
+
+    fun buildManualTargetName(source: String?, extension: String): String? {
+        val targetName = source?.trim()
+        if (targetName.isNullOrEmpty()) return null
+        return if (extension.isBlank() || targetName.substringAfterLast('/').contains('.')) {
+            targetName
+        } else {
+            "$targetName.$extension"
+        }
+    }
+
     private fun findCode(source: String): String? {
         for (match in codePattern.findAll(source)) {
             normalize(match.groupValues[1], match.groupValues[2])?.let { return it }

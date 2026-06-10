@@ -22,14 +22,20 @@ package org.videolan.vlc.gui.video
 
 import android.content.Intent
 import android.content.SharedPreferences
+import android.text.InputType
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.AppCompatEditText
 import androidx.appcompat.view.ActionMode
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.fragment.app.FragmentActivity
@@ -710,7 +716,65 @@ class VideoGridFragment : MediaBrowserFragment<VideosViewModel>(), SwipeRefreshL
             return
         }
 
-        val targetName = if (sourceFile.extension.isBlank()) code else "$code.${sourceFile.extension}"
+        val targetName = JavCodeExtractor.buildTargetName(code, sourceFile.extension)
+        showJavCodeExtractConfirmation(sourceFile, code, targetName)
+    }
+
+    private fun showJavCodeExtractConfirmation(sourceFile: File, code: String, targetName: String) {
+        val codeView = TextView(requireContext()).apply {
+            text = code
+            gravity = Gravity.CENTER
+            textSize = 20F
+            setPadding(24.dp, 16.dp, 24.dp, 16.dp)
+        }
+
+        AlertDialog.Builder(requireActivity())
+                .setTitle(R.string.extract_jav_code)
+                .setView(codeView)
+                .setNegativeButton(R.string.extract_jav_code_confirm) { _, _ -> renameJavCodeFile(sourceFile, targetName) }
+                .setPositiveButton(R.string.extract_jav_code_custom) { _, _ -> showManualJavCodeRenameDialog(sourceFile, targetName) }
+                .show()
+    }
+
+    private fun showManualJavCodeRenameDialog(sourceFile: File, targetName: String) {
+        val input = AppCompatEditText(requireContext()).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setSingleLine()
+            setText(targetName)
+            val extIndex = targetName.indexOfLast { it == '.' }
+            setSelection(0, if (extIndex != -1) extIndex else targetName.length)
+            setPadding(24.dp, 8.dp, 24.dp, 8.dp)
+        }
+        val dialog = AlertDialog.Builder(requireActivity())
+                .setTitle(R.string.extract_jav_code_custom)
+                .setView(input)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.rename, null)
+                .create()
+        dialog.setOnShowListener {
+            val rename = {
+                val manualTargetName = JavCodeExtractor.buildManualTargetName(input.text?.toString(), sourceFile.extension)
+                if (manualTargetName == null) {
+                    input.error = getString(R.string.extract_jav_code_empty_name)
+                    false
+                } else {
+                    dialog.dismiss()
+                    renameJavCodeFile(sourceFile, manualTargetName)
+                    true
+                }
+            }
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { rename() }
+            input.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) rename() else false
+            }
+            input.requestFocus()
+            UiTools.setKeyboardVisibility(input, true)
+        }
+        dialog.show()
+    }
+
+    private fun renameJavCodeFile(sourceFile: File, targetName: String) {
         val targetFile = sourceFile.resolveSibling(targetName)
         if (targetFile == sourceFile) {
             UiTools.snacker(requireActivity(), getString(R.string.extract_jav_code_done, targetName))

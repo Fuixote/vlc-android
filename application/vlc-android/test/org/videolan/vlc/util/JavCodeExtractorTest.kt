@@ -32,4 +32,17 @@ class JavCodeExtractorTest {
     fun buildJdbCollectionUrl_usesNormalizedCodeAsQuery() {
         assertEquals("http://fuixote:1234/collection?q=ktb-111&filter=all", JavCodeExtractor.buildJdbCollectionUrl("KTB-111.mp4"))
     }
+
+    @Test
+    fun buildTargetName_preservesOriginalExtension() {
+        assertEquals("KTB-111.mp4", JavCodeExtractor.buildTargetName("KTB-111", "mp4"))
+        assertEquals("KTB-111", JavCodeExtractor.buildTargetName("KTB-111", ""))
+    }
+
+    @Test
+    fun buildManualTargetName_preservesExtensionUnlessUserTypesOne() {
+        assertEquals("KTB-222.mp4", JavCodeExtractor.buildManualTargetName(" KTB-222 ", "mp4"))
+        assertEquals("KTB-222.mkv", JavCodeExtractor.buildManualTargetName("KTB-222.mkv", "mp4"))
+        assertNull(JavCodeExtractor.buildManualTargetName(" ", "mp4"))
+    }
 }
